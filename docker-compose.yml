@@ -1,0 +1,171 @@
+networks:
+  web: # réseau exposé par Traefik
+    driver: bridge
+  internal: # réseau privé app ↔ DB, jamais exposé
+    driver: bridge
+
+volumes:
+  loki_data:
+  grafana_data:
+  postgres_data:
+
+services:
+  # ─── REVERSE PROXY ────────────────────────────────────────────
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false" # opt-in par label
+      - "--entrypoints.web.address=:80"
+      - "--ping=true"
+      # Pour activer HTTPS plus tard, ajouter :
+      # - "--entrypoints.websecure.address=:443"
+      # - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      # - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      # - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+    ports:
+      - "80:80"
+      - "8080:8080" # dashboard Traefik (dev)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - web
+    restart: unless-stopped
+    labels:
+      - "logging=promtail"
+      # Expose le dashboard Traefik via lui-même
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/ping || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ─── BASE DE DONNÉES ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./services/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - internal # uniquement réseau interne, jamais exposé
+    restart: unless-stopped
+    labels:
+      - "logging=promtail"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── APPLICATION TODO ─────────────────────────────────────────
+  todo-app:
+    build:
+      context: ./services/todo-app
+      dockerfile: Dockerfile
+    container_name: todo-app
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    networks:
+      - web
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - "logging=promtail"
+      - "traefik.enable=true"
+      - "traefik.http.routers.todo.rule=Host(`todo.localhost`)"
+      - "traefik.http.routers.todo.entrypoints=web"
+      - "traefik.http.services.todo.loadbalancer.server.port=3000"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /app/.next/BUILD_ID || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ─── COLLECTE DES LOGS ────────────────────────────────────────
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    volumes:
+      - ./config/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - internal
+    depends_on:
+      - loki
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c 'echo > /dev/tcp/localhost/9080'",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ─── STOCKAGE DES LOGS ────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    volumes:
+      - ./config/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/config.yml
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q --tries=1 -O- http://localhost:3100/ready || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ─── VISUALISATION ────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - web
+      - internal
+    depends_on:
+      - loki
+    restart: unless-stopped
+    labels:
+      - "logging=promtail"
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.localhost`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
