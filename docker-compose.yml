@@ -170,3 +170,22 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  # ─── BACKUP S3 ────────────────────────────────────────────────
+  backup:
+    build: ./services/backup
+    container_name: backup
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+    volumes:
+      - loki_data:/loki-data:ro # accès en lecture seule aux données Loki
+    networks:
+      - internal
+    restart: unless-stopped
+    labels:
+      - "logging=promtail"
+    depends_on:
+      - loki
