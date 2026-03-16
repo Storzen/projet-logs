@@ -20,22 +20,7 @@ Mise en place d'une stack complète de centralisation et visualisation des logs 
 
 ## Architecture
 
-```
-Navigateur
-    │
-    ▼
-[Traefik :80]          ← découverte automatique des services via Docker socket
-    │
-    ├──► todo.localhost     ──► [Next.js :3000]
-    │                                │
-    │                          [PostgreSQL :5432]   (réseau interne uniquement)
-    │
-    └──► grafana.localhost  ──► [Grafana :3000]
-                                     │
-                                [Loki :3100]         ← stockage des logs
-                                     ▲
-                                [Promtail]           ← collecte via Docker socket
-```
+![Architecture — Centralisation des Logs](./architecture_centralisation_logs.svg)
 
 **Flux des logs :**
 
