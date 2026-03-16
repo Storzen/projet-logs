@@ -17,7 +17,7 @@ services:
     command:
       - "--api.dashboard=true"
       - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false" # opt-in par label
+      - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--ping=true"
       # Pour activer HTTPS plus tard, ajouter :
@@ -27,9 +27,7 @@ services:
       # - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
     ports:
       - "80:80"
-      - "8080:8080" # dashboard Traefik (dev)
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - "8080:8080"
     networks:
       - web
     restart: unless-stopped
@@ -99,12 +97,10 @@ services:
 
   # ─── COLLECTE DES LOGS ────────────────────────────────────────
   promtail:
-    image: grafana/promtail:2.9.0
+    image: grafana/promtail:3.0.0
     container_name: promtail
     volumes:
       - ./config/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
     command: -config.file=/etc/promtail/config.yml
     networks:
       - internal
