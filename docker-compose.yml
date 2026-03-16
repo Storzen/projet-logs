@@ -112,11 +112,7 @@ services:
       - loki
     restart: unless-stopped
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "bash -c 'echo > /dev/tcp/localhost/9080'",
-        ]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9080'"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -150,8 +146,13 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=grafana.localhost
+      - GF_SERVER_ROOT_URL=http://grafana.localhost
+      - GF_LOG_CONSOLE_FORMAT=json
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards
     networks:
       - web
       - internal
