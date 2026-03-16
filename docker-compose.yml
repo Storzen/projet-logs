@@ -28,6 +28,8 @@ services:
       # - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
       # - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       # - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+    environment:
+      - DOCKER_API_VERSION=1.44
     ports:
       - "80:80"
       - "8080:8080"
