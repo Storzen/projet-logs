@@ -1,0 +1,95 @@
+stages:
+  - build
+  - push
+  - deploy
+
+variables:
+  # Région et URL du registry ECR — à adapter
+  AWS_REGION: eu-central-1
+  ECR_REGISTRY: $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+  IMAGE_NAME: todo-app
+  # Tag unique par commit + tag "latest"
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+
+# ── BUILD ──────────────────────────────────────────────────────────
+build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind # Docker-in-Docker pour builder l'image
+  tags:
+    - ec2 # utilise le Runner installé sur l'EC2
+  script:
+    - echo "Build de l'image $IMAGE_NAME:$IMAGE_TAG"
+    - docker build
+      -t $IMAGE_NAME:$IMAGE_TAG
+      -t $IMAGE_NAME:latest
+      ./services/todo-app
+  # Sauvegarde l'image comme artefact entre les jobs
+  after_script:
+    - docker save $IMAGE_NAME:$IMAGE_TAG > image.tar
+  artifacts:
+    paths:
+      - image.tar
+    expire_in: 1 hour
+  only:
+    - main
+
+# ── PUSH TO ECR ────────────────────────────────────────────────────
+push:
+  stage: push
+  image: docker:24
+  services:
+    - docker:24-dind
+  tags:
+    - ec2
+  before_script:
+    # Installe le CLI AWS
+    - apk add --no-cache aws-cli
+    # Authentification auprès d'ECR
+    - aws ecr get-login-password --region $AWS_REGION
+      | docker login --username AWS --password-stdin $ECR_REGISTRY
+    # Crée le repository ECR s'il n'existe pas encore
+    - aws ecr describe-repositories --repository-names $IMAGE_NAME --region $AWS_REGION
+      || aws ecr create-repository --repository-name $IMAGE_NAME --region $AWS_REGION
+  script:
+    # Charge l'image buildée à l'étape précédente
+    - docker load < image.tar
+    # Tag avec l'URL ECR complète
+    - docker tag $IMAGE_NAME:$IMAGE_TAG $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+    - docker tag $IMAGE_NAME:$IMAGE_TAG $ECR_REGISTRY/$IMAGE_NAME:latest
+    # Push les deux tags
+    - docker push $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+    - docker push $ECR_REGISTRY/$IMAGE_NAME:latest
+    - echo "Image poussée: $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+  dependencies:
+    - build
+  only:
+    - main
+
+# ── DEPLOY ─────────────────────────────────────────────────────────
+deploy:
+  stage: deploy
+  image: alpine:3.19
+  tags:
+    - ec2
+  before_script:
+    - apk add --no-cache aws-cli docker-cli-compose
+    # Authentification ECR pour le pull
+    - aws ecr get-login-password --region $AWS_REGION
+      | docker login --username AWS --password-stdin $ECR_REGISTRY
+  script:
+    - echo "Déploiement de $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+    # Met à jour la variable d'image dans l'environnement
+    - export TODO_IMAGE=$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+    # Pull la nouvelle image et redémarre uniquement todo-app
+    # sans couper les autres services (Loki, Grafana, etc.)
+    - docker compose -f /opt/projet-logs/docker-compose.yml pull todo-app
+    - docker compose -f /opt/projet-logs/docker-compose.yml up -d --no-deps todo-app
+    - echo "Déploiement terminé"
+  dependencies: []
+  only:
+    - main
+  environment:
+    name: production
+    url: http://todo.localhost
