@@ -15,6 +15,16 @@ variables:
   - set -a && source /tmp/.doppler.env && set +a && rm -f /tmp/.doppler.env
   - export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
+.app_changes: &app_changes
+  - services/todo-app/**/*
+  - .gitlab-ci.yml
+
+.deploy_changes: &deploy_changes
+  - services/todo-app/**/*
+  - docker-compose.yml
+  - config/**/*
+  - .gitlab-ci.yml
+
 # ── BUILD ──────────────────────────────────────────────────────────────────────
 build:
   stage: build
@@ -29,8 +39,9 @@ build:
     paths:
       - image.tar
     expire_in: 1 hour
-  only:
-    - main
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes: *app_changes
 
 # ── PUSH TO ECR ────────────────────────────────────────────────────────────────
 push:
@@ -50,8 +61,9 @@ push:
     - docker push $ECR_REGISTRY/$IMAGE_NAME:latest
   dependencies:
     - build
-  only:
-    - main
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes: *app_changes
 
 # ── DEPLOY ─────────────────────────────────────────────────────────────────────
 deploy:
@@ -61,8 +73,9 @@ deploy:
   script:
     - cd /opt/projet-logs && git pull origin main
     - make deploy ENV=prd
-  only:
-    - main
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes: *deploy_changes
   environment:
     name: production
     url: https://todo.yondrfit.com
