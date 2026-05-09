@@ -12,10 +12,7 @@ variables:
 
 .export_secrets: &export_secrets
   - doppler secrets download --no-file --format env --token $DOPPLER_TOKEN --project $DOPPLER_PROJECT --config $DOPPLER_CONFIG > /tmp/.doppler.env
-  - echo "=== Lines in doppler file ==" && wc -l /tmp/.doppler.env
-  - echo "=== Keys only ===" && grep -o '^[^=]*' /tmp/.doppler.env | sort
   - set -a && source /tmp/.doppler.env && set +a && rm -f /tmp/.doppler.env
-  - echo "AWS_ACCOUNT_ID set=${#AWS_ACCOUNT_ID} chars"
   - export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
 # ── BUILD ──────────────────────────────────────────────────────────────────────
