@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.10 AS deps
+FROM oven/bun:1.3.13 AS deps
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ RUN bun install --ci \
     --registry=https://registry.npmjs.org \
     --global-cache-dir=/tmp/bun-global-cache
 
-FROM oven/bun:1.3.10 AS builder
+FROM oven/bun:1.3.13 AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 RUN bun run build
 
-FROM oven/bun:1.3.10 AS runner
+FROM oven/bun:1.3.13 AS runner
 
 WORKDIR /app
 
