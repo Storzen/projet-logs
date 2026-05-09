@@ -1,20 +1,19 @@
 FROM alpine:3.19
 
-# Installation AWS CLI + outils de base
 RUN apk add --no-cache \
     aws-cli \
     tar \
     gzip \
     tzdata
 
-# Crée le dossier de logs
-RUN mkdir -p /var/log
+RUN addgroup -S backup && adduser -S -G backup backup
 
-# Copie du script de backup
+RUN mkdir -p /var/log && chown backup:backup /var/log
+
 COPY backup.sh /usr/local/bin/backup.sh
 RUN chmod +x /usr/local/bin/backup.sh
 
-# Copie de l'entrée cron (toutes les 6h)
-COPY crontab /etc/crontabs/root
+COPY crontab /etc/crontabs/backup
+RUN chmod 600 /etc/crontabs/backup
 
 CMD ["crond", "-f", "-d", "8"]
