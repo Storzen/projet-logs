@@ -10,38 +10,72 @@ volumes:
   loki_data:
   grafana_data:
   postgres_data:
+  letsencrypt:
 
 services:
+  # ─── SOCKET PROXY ─────────────────────────────────────────────
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: socket-proxy
+    environment:
+      CONTAINERS: 1
+      NETWORKS: 1
+      EVENTS: 1
+      INFO: 1
+      PING: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket-proxy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
   # ─── REVERSE PROXY ────────────────────────────────────────────
   traefik:
     image: traefik:3
     container_name: traefik
     command:
       - "--api.dashboard=true"
+      - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.endpoint=tcp://socket-proxy:2375"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       - "--ping=true"
-      # Pour activer HTTPS plus tard, ajouter :
-      # - "--entrypoints.websecure.address=:443"
-      # - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
-      # - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      # - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
     environment:
       - DOCKER_API_VERSION=1.44
     ports:
       - "80:80"
+      - "443:443"
       - "8080:8080"
+    volumes:
+      - letsencrypt:/letsencrypt
     networks:
       - web
       - socket-proxy
+    depends_on:
+      - socket-proxy
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
     labels:
       - "logging=promtail"
-      # Expose le dashboard Traefik via lui-même
       - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.yondrfit.com`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
       - "traefik.http.routers.dashboard.service=api@internal"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/ping || exit 1"]
@@ -61,8 +95,10 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./services/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
-      - internal # uniquement réseau interne, jamais exposé
+      - internal
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     labels:
       - "logging=promtail"
     healthcheck:
@@ -81,6 +117,8 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
+    ports:
+      - "3000:3000"
     networks:
       - web
       - internal
@@ -88,33 +126,45 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     labels:
       - "logging=promtail"
       - "traefik.enable=true"
-      - "traefik.http.routers.todo.rule=Host(`todo.localhost`)"
-      - "traefik.http.routers.todo.entrypoints=web"
+      - "traefik.http.routers.todo.rule=Host(`todo.yondrfit.com`)"
+      - "traefik.http.routers.todo.entrypoints=websecure"
+      - "traefik.http.routers.todo.tls=true"
+      - "traefik.http.routers.todo.tls.certresolver=letsencrypt"
       - "traefik.http.services.todo.loadbalancer.server.port=3000"
+      - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
-      test: ["CMD-SHELL", "test -f /app/.next/BUILD_ID || exit 1"]
+      test: ["CMD-SHELL", "bun -e \"fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
       start_period: 30s
 
   # ─── COLLECTE DES LOGS ────────────────────────────────────────
   promtail:
-    image: grafana/promtail:3.0.0
+    image: grafana/promtail:2.9.0
     container_name: promtail
     volumes:
       - ./config/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
     command: -config.file=/etc/promtail/config.yml
     networks:
       - internal
+      - socket-proxy
     depends_on:
       - loki
+      - socket-proxy
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9080'"]
+      test: ["CMD-SHELL", "bash -c 'echo -n > /dev/tcp/localhost/9080' 2>/dev/null"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -130,6 +180,10 @@ services:
     networks:
       - internal
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
       test:
         [
@@ -148,24 +202,30 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_DOMAIN=grafana.localhost
-      - GF_SERVER_ROOT_URL=http://grafana.localhost
+      - GF_SERVER_DOMAIN=logs.yondrfit.com
+      - GF_SERVER_ROOT_URL=https://logs.yondrfit.com
       - GF_LOG_CONSOLE_FORMAT=json
     volumes:
       - grafana_data:/var/lib/grafana
       - ./config/grafana/provisioning:/etc/grafana/provisioning
       - ./config/grafana/dashboards:/var/lib/grafana/dashboards
+    ports:
+      - "3001:3000"
     networks:
       - web
       - internal
     depends_on:
       - loki
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     labels:
       - "logging=promtail"
       - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`grafana.localhost`)"
-      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.http.routers.grafana.rule=Host(`logs.yondrfit.com`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls=true"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
@@ -183,11 +243,43 @@ services:
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
     volumes:
-      - loki_data:/loki-data:ro # accès en lecture seule aux données Loki
+      - loki_data:/loki-data:ro
     networks:
       - internal
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     labels:
       - "logging=promtail"
     depends_on:
       - loki
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep crond || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+
+  # ─── MISES À JOUR AUTOMATIQUES ───────────────────────────────
+  # Note : Watchtower nécessite un accès direct au socket Docker (pull ECR,
+  # redémarrage des conteneurs, lecture des credentials AWS). Il ne peut pas
+  # passer par le socket-proxy car celui-ci restreint les endpoints à un sous-
+  # ensemble minimal. C'est une limitation connue de l'image Watchtower.
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_LABEL_ENABLE=true
+      - AWS_REGION=${AWS_DEFAULT_REGION}
+      - DOCKER_API_VERSION=1.44
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - "logging=promtail"
