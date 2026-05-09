@@ -3,7 +3,11 @@ import { log } from "./logger";
 
 // Pool de connexions partagé sur toute l'app Next.js
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  host: process.env.PGHOST ?? "postgres",
+  port: Number(process.env.PGPORT ?? 5432),
+  user: process.env.PGUSER,
+  password: process.env.PGPASSWORD,
+  database: process.env.PGDATABASE,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,

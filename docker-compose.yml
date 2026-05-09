@@ -117,7 +117,11 @@ services:
       dockerfile: Dockerfile
     container_name: todo-app
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGUSER=${POSTGRES_USER}
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+      - PGDATABASE=${POSTGRES_DB}
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
     ports:
