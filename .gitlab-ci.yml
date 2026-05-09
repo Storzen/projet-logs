@@ -11,7 +11,7 @@ variables:
   IMAGE_TAG:       $CI_COMMIT_SHORT_SHA
 
 .export_secrets: &export_secrets
-  - eval $(doppler secrets download --no-file --format env --token $DOPPLER_TOKEN --project $DOPPLER_PROJECT --config $DOPPLER_CONFIG)
+  - export $(doppler secrets download --no-file --format env --token $DOPPLER_TOKEN --project $DOPPLER_PROJECT --config $DOPPLER_CONFIG | xargs)
   - export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
 # ── BUILD ──────────────────────────────────────────────────────────────────────
