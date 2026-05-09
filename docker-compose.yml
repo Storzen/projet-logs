@@ -1,10 +1,13 @@
 networks:
   web:
     driver: bridge
+    name: web
   internal:
     driver: bridge
+    name: internal
   socket-proxy:
     driver: bridge
+    name: socket-proxy
 
 volumes:
   loki_data:
@@ -136,6 +139,7 @@ services:
       - "traefik.http.routers.todo.tls=true"
       - "traefik.http.routers.todo.tls.certresolver=letsencrypt"
       - "traefik.http.services.todo.loadbalancer.server.port=3000"
+      - "traefik.docker.network=web"
       - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
       test: ["CMD-SHELL", "bun -e \"fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
@@ -227,6 +231,7 @@ services:
       - "traefik.http.routers.grafana.tls=true"
       - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.docker.network=web"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
       interval: 30s
