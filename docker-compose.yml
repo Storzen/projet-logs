@@ -18,7 +18,7 @@ volumes:
 services:
   # ─── SOCKET PROXY ─────────────────────────────────────────────
   socket-proxy:
-    image: tecnativa/docker-socket-proxy:latest
+    image: tecnativa/docker-socket-proxy:0.3.0
     container_name: socket-proxy
     environment:
       CONTAINERS: 1
@@ -36,7 +36,7 @@ services:
 
   # ─── REVERSE PROXY ────────────────────────────────────────────
   traefik:
-    image: traefik:3
+    image: traefik:v3.7.0
     container_name: traefik
     command:
       - "--api.dashboard=true"
@@ -276,7 +276,7 @@ services:
   # passer par le socket-proxy car celui-ci restreint les endpoints à un sous-
   # ensemble minimal. C'est une limitation connue de l'image Watchtower.
   watchtower:
-    image: containrrr/watchtower:latest
+    image: containrrr/watchtower:1.7.1
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

@@ -41,15 +41,15 @@ L'accès au socket Docker est délégué au **socket-proxy** (tecnativa), qui ex
 
 | Rôle                         | Outil                                                                    | Version  |
 | ---------------------------- | ------------------------------------------------------------------------ | -------- |
-| Reverse proxy + TLS          | [Traefik](https://traefik.io/)                                           | v3       |
+| Reverse proxy + TLS          | [Traefik](https://traefik.io/)                                           | v3.7.0   |
 | Application de démonstration | [Next.js](https://nextjs.org/)                                           | 14       |
 | Base de données              | [PostgreSQL](https://www.postgresql.org/)                                | 16       |
 | Collecte des logs            | [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/)    | 2.9      |
 | Stockage des logs            | [Loki](https://grafana.com/oss/loki/)                                    | 2.9      |
 | Visualisation                | [Grafana](https://grafana.com/)                                          | 10.2     |
-| Mises à jour automatiques    | [Watchtower](https://containrrr.dev/watchtower/)                         | latest   |
+| Mises à jour automatiques    | [Watchtower](https://containrrr.dev/watchtower/)                         | 1.7.1    |
 | Backup des données           | Script custom AWS CLI                                                    | —        |
-| Proxy Docker socket          | [tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) | latest |
+| Proxy Docker socket          | [tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) | 0.3.0 |
 | Gestion des secrets          | [Doppler](https://doppler.com/)                                          | CLI      |
 | CI/CD                        | GitLab CI                                                                | —        |
 | Container registry           | Amazon ECR                                                               | —        |
