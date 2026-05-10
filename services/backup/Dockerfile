@@ -6,14 +6,10 @@ RUN apk add --no-cache \
     gzip \
     tzdata
 
-RUN addgroup -S backup && adduser -S -G backup backup
-
-RUN mkdir -p /var/log && chown backup:backup /var/log
-
 COPY backup.sh /usr/local/bin/backup.sh
 RUN chmod +x /usr/local/bin/backup.sh
 
-COPY crontab /etc/crontabs/backup
-RUN chmod 600 /etc/crontabs/backup
+COPY crontab /etc/crontabs/root
+RUN chmod 600 /etc/crontabs/root
 
-CMD ["crond", "-f", "-d", "8"]
+CMD ["/bin/sh", "-c", "printenv >> /etc/environment && crond -f -d 8"]
