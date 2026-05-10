@@ -250,6 +250,9 @@ Dans Grafana → **Explore**, quelques requêtes LogQL utiles :
 
 # Logs Traefik
 {service="traefik"}
+
+# Logs d'une réplique spécifique
+{service="todo-app", container="projet-logs-todo-app-1"}
 ```
 
 ### Générer des logs de test
