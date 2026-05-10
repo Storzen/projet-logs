@@ -1,5 +1,7 @@
 #!/bin/sh
 
+[ -f /etc/container-env.sh ] && . /etc/container-env.sh
+
 LOG=/var/log/backup.log
 
 if [ -z "$_BACKUP_LOGGED" ]; then
