@@ -42,7 +42,7 @@ L'accès au socket Docker est délégué au **socket-proxy** (tecnativa), qui ex
 | Rôle                         | Outil                                                                    | Version  |
 | ---------------------------- | ------------------------------------------------------------------------ | -------- |
 | Reverse proxy + TLS          | [Traefik](https://traefik.io/)                                           | v3.7.0   |
-| Application de démonstration | [Next.js](https://nextjs.org/)                                           | 14       |
+| Application de démonstration | [Next.js](https://nextjs.org/) — 2 répliques                            | 14       |
 | Base de données              | [PostgreSQL](https://www.postgresql.org/)                                | 16       |
 | Collecte des logs            | [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/)    | 2.9      |
 | Stockage des logs            | [Loki](https://grafana.com/oss/loki/)                                    | 2.9      |
@@ -200,6 +200,34 @@ Les certificats TLS sont gérés automatiquement par Traefik via **Let's Encrypt
 3. Choisir **Loki**
 4. Renseigner l'URL : `http://loki:3100`
 5. Cliquer **Save & test**
+
+---
+
+## Load balancing
+
+La todo app tourne avec **2 répliques**. Traefik les découvre automatiquement via les labels Docker et distribue le trafic entre elles en round-robin.
+
+### Vérifier que les deux instances sont actives
+
+Dans le dashboard Traefik (`https://traefik.yondrfit.com`), la section **HTTP → Services → todo** doit afficher 2 serveurs avec un statut `UP`.
+
+En ligne de commande sur l'EC2 :
+
+```bash
+docker compose ps todo-app
+```
+
+Doit lister deux conteneurs (`projet-logs-todo-app-1` et `projet-logs-todo-app-2`), tous deux `healthy`.
+
+### Vérifier le load balancing en action
+
+```bash
+for i in $(seq 1 6); do
+  curl -s https://todo.yondrfit.com/api/health | grep -o '"hostname":"[^"]*"'
+done
+```
+
+Chaque requête doit alterner entre les deux hostnames de conteneur, confirmant que Traefik distribue bien le trafic.
 
 ---
 
