@@ -10,6 +10,6 @@ COPY backup.sh /usr/local/bin/backup.sh
 RUN chmod +x /usr/local/bin/backup.sh
 
 COPY crontab /etc/crontabs/root
-RUN chmod 600 /etc/crontabs/root
+RUN chmod 600 /etc/crontabs/root && mkdir -p /var/log
 
 CMD ["/bin/sh", "-c", "export -p > /etc/container-env.sh && crond -f -d 8 -c /etc/crontabs"]
