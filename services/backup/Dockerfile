@@ -12,4 +12,4 @@ RUN chmod +x /usr/local/bin/backup.sh
 COPY crontab /etc/crontabs/root
 RUN chmod 600 /etc/crontabs/root
 
-CMD ["/bin/sh", "-c", "export -p > /etc/container-env.sh && crond -f -d 8"]
+CMD ["/bin/sh", "-c", "export -p > /etc/container-env.sh && crond -f -d 8 -c /etc/crontabs"]
