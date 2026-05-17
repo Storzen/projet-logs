@@ -2,14 +2,6 @@
 
 [ -f /etc/container-env.sh ] && . /etc/container-env.sh
 
-LOG=/var/log/backup.log
-
-if [ -z "$_BACKUP_LOGGED" ]; then
-  export _BACKUP_LOGGED=1
-  "$0" "$@" 2>&1 | tee -a "$LOG"
-  exit $?
-fi
-
 set -e
 
 DATE=$(date +%Y-%m-%dT%H-%M-%S)
