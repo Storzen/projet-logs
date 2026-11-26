@@ -57,7 +57,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - letsencrypt:/letsencrypt
     networks:
@@ -214,7 +214,7 @@ services:
       - ./config/grafana/provisioning:/etc/grafana/provisioning
       - ./config/grafana/dashboards:/var/lib/grafana/dashboards
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     networks:
       - web
       - internal
