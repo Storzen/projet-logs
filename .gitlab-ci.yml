@@ -78,4 +78,3 @@ deploy:
       changes: *deploy_changes
   environment:
     name: production
-    url: https://todo.yondrfit.com
