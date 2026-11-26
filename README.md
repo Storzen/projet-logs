@@ -76,7 +76,7 @@ L'accès au socket Docker est délégué au **socket-proxy** (tecnativa), qui ex
 ### 1. Cloner le dépôt
 
 ```bash
-git clone https://gitlab.com/isjprojects/projet-cloud.git projet-logs
+git clone https://github.com/Storzen/projet-logs.git
 cd projet-logs
 ```
 

@@ -69,7 +69,7 @@ newgrp docker
 docker --version && docker compose version
 
 # Cloner le projet
-git clone https://gitlab.com/isjprojects/projet-cloud.git /opt/projet-logs
+git clone https://github.com/Storzen/projet-logs.git /opt/projet-logs
 cd /opt/projet-logs
 
 # Créer le fichier .env de production
