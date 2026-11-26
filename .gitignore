@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -40,6 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Documents
-/docs
-/screenshots
+# Documents de cours non publiés ; seuls le guide de déploiement et les captures du README sont versionnés
+/docs/*
+!/docs/DEPLOIEMENT.md
+/screenshots/*
+!/screenshots/todo-app.png
+!/screenshots/grafana-dashboard.png
