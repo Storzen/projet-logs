@@ -2,11 +2,13 @@
 
 ## Stack cible
 
+`<DOMAIN>` désigne la valeur de la variable `DOMAIN` (Doppler ou `.env`).
+
 | Service | URL de prod |
 |---|---|
-| Todo App | `todo.yondrfit.com` |
-| Grafana (logs) | `logs.yondrfit.com` |
-| Traefik dashboard | `traefik.yondrfit.com` |
+| Todo App | `todo.<DOMAIN>` |
+| Grafana (logs) | `logs.<DOMAIN>` |
+| Traefik dashboard | pas de route publique, port 8080 par tunnel SSH |
 
 ---
 
@@ -40,15 +42,14 @@ Noter l'`AWS_ACCOUNT_ID` pour les variables CI/CD.
 
 ---
 
-## Phase 2 — DNS : Hostinger
+## Phase 2 — DNS
 
-Dans le panneau Hostinger, créer **3 enregistrements A** pointant vers l'Elastic IP EC2 :
+Chez le registrar du domaine, créer **2 enregistrements A** pointant vers l'Elastic IP EC2 :
 
 | Sous-domaine | Type | Valeur |
 |---|---|---|
-| `todo.yondrfit.com` | A | `<Elastic IP>` |
-| `logs.yondrfit.com` | A | `<Elastic IP>` |
-| `traefik.yondrfit.com` | A | `<Elastic IP>` |
+| `todo.<DOMAIN>` | A | `<Elastic IP>` |
+| `logs.<DOMAIN>` | A | `<Elastic IP>` |
 
 > La propagation DNS prend 5 à 30 minutes.
 
@@ -87,12 +88,12 @@ Rien à modifier dans le code, `docker-compose.yml` contient déjà la configura
 - Redirection HTTP → HTTPS globale via `--entrypoints.web.http.redirections.entrypoint.to=websecure`
 - Volume `letsencrypt` persistant pour stocker les certificats (`/letsencrypt/acme.json`)
 - Tous les routers Traefik utilisent `entrypoints=websecure` + `tls.certresolver=letsencrypt`
-- Domaines configurés :
-  - `todo.yondrfit.com` → todo-app
-  - `logs.yondrfit.com` → Grafana
-  - `traefik.yondrfit.com` → dashboard Traefik
+- Domaines dérivés de `DOMAIN` :
+  - `todo.<DOMAIN>` → todo-app
+  - `logs.<DOMAIN>` → Grafana
+- Le dashboard Traefik n'a pas de route publique. Pour y accéder : `ssh -L 8080:localhost:8080 ubuntu@<Elastic IP>`, puis `http://localhost:8080/dashboard/`
 
-Il reste à renseigner `ACME_EMAIL` dans Doppler (config `prd`) ou dans le `.env` : Let's Encrypt y envoie les alertes d'expiration.
+Il reste à renseigner `DOMAIN` et `ACME_EMAIL` dans Doppler (config `prd`) ou dans le `.env` : Let's Encrypt y envoie les alertes d'expiration.
 
 ---
 
@@ -145,6 +146,7 @@ Tous les secrets AWS, Postgres, Grafana sont dans Doppler et injectés automatiq
 | `GRAFANA_USER` | Admin Grafana |
 | `GRAFANA_PASSWORD` | Mot de passe Grafana |
 | `ACME_EMAIL` | Email Let's Encrypt (HTTPS) |
+| `DOMAIN` | Domaine racine des routes Traefik |
 
 ---
 
@@ -174,7 +176,7 @@ Une fois ce premier boot validé, chaque `git push` sur `main` déclenche automa
 
 ```
 1. Console AWS  → EC2 t3.small + Elastic IP + ECR repo
-2. Hostinger    → 3 enregistrements DNS A → Elastic IP
+2. Registrar    → 2 enregistrements DNS A → Elastic IP
 3. EC2 SSH      → Docker + clonage repo + .env de prod
 4. EC2 SSH      → Installer + enregistrer le GitLab Runner (tag: ec2)
 5. GitLab UI    → Ajouter la variable DOPPLER_TOKEN

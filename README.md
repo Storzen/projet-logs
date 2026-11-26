@@ -136,6 +136,7 @@ Ce projet utilise [Doppler](https://doppler.com/) pour centraliser et injecter l
 | `AWS_DEFAULT_REGION`    | Région AWS cible                      |
 | `S3_BUCKET_NAME`        | Bucket S3 pour les backups Loki       |
 | `ACME_EMAIL`            | Email Let's Encrypt (certificats TLS) |
+| `DOMAIN`                | Domaine racine (`todo.` et `logs.`)   |
 
 ### Se connecter à Doppler
 
@@ -172,32 +173,36 @@ make up ENV=prd
 
 ## Interfaces et accès
 
+La variable `DOMAIN` fixe le domaine racine. Traefik route `todo.<DOMAIN>` vers la todo app et `logs.<DOMAIN>` vers Grafana, avec des certificats Let's Encrypt.
+
 ### En local
 
-Les routes Traefik utilisent les domaines de production (`*.yondrfit.com`). En local, Grafana et le dashboard Traefik restent joignables par leurs ports publiés :
+Sans `DOMAIN`, la stack utilise `localhost`. Les navigateurs résolvent `*.localhost` vers la machine locale sans configuration :
 
 | Service           | URL                               |
 | ----------------- | --------------------------------- |
-| Grafana           | http://localhost:3001             |
+| Todo App          | https://todo.localhost            |
+| Grafana           | https://logs.localhost, ou http://localhost:3001 |
 | Dashboard Traefik | http://localhost:8080/dashboard/  |
 
-La todo app n'a pas de port publié : elle ne répond qu'à travers Traefik. Pour l'ouvrir dans un navigateur, faire pointer `todo.yondrfit.com` vers `127.0.0.1` dans le fichier `hosts` de la machine, puis accepter le certificat auto-signé que Traefik sert faute de Let's Encrypt. En ligne de commande :
+Let's Encrypt ne délivre pas de certificat pour `localhost` : Traefik sert un certificat auto-signé qu'il faut accepter dans le navigateur. En ligne de commande :
 
 ```bash
-curl -k --resolve todo.yondrfit.com:443:127.0.0.1 https://todo.yondrfit.com/api/health
+curl -k --resolve todo.localhost:443:127.0.0.1 https://todo.localhost/api/health
 ```
 
 ![Todo app](./screenshots/todo-app.png)
 
 ### En production (AWS EC2)
 
-| Service           | URL                             |
-| ----------------- | ------------------------------- |
-| Todo App          | https://todo.yondrfit.com       |
-| Grafana           | https://logs.yondrfit.com       |
-| Dashboard Traefik | https://traefik.yondrfit.com    |
+Renseigner `DOMAIN` dans Doppler (config `prd`) ou dans le `.env`, puis créer deux enregistrements DNS A, `todo.<DOMAIN>` et `logs.<DOMAIN>`, vers l'Elastic IP de l'instance.
 
-Les certificats TLS sont gérés automatiquement par Traefik via **Let's Encrypt** (ACME TLS Challenge).
+Le dashboard Traefik n'a pas de route publique : il n'a pas d'authentification. Il écoute sur le port 8080 de l'instance, que le security group laisse fermé. Pour le consulter, ouvrir un tunnel SSH :
+
+```bash
+ssh -i ta-cle.pem -L 8080:localhost:8080 ubuntu@<Elastic IP>
+# puis http://localhost:8080/dashboard/
+```
 
 ### Datasource et dashboard Grafana
 
@@ -213,7 +218,7 @@ La todo app tourne avec **2 répliques**. Traefik les découvre automatiquement 
 
 ### Vérifier que les deux instances sont actives
 
-Dans le dashboard Traefik (`https://traefik.yondrfit.com`), la section **HTTP → Services → todo** doit afficher 2 serveurs avec un statut `UP`.
+Dans le dashboard Traefik (`http://localhost:8080/dashboard/`, par tunnel SSH en production), la section **HTTP → Services → todo** doit afficher 2 serveurs avec un statut `UP`.
 
 En ligne de commande sur l'EC2 :
 
@@ -227,7 +232,7 @@ Doit lister deux conteneurs (`projet-logs-todo-app-1` et `projet-logs-todo-app-2
 
 ```bash
 for i in $(seq 1 6); do
-  curl -s https://todo.yondrfit.com/api/health | grep -o '"hostname":"[^"]*"'
+  curl -sk https://todo.localhost/api/health | grep -o '"hostname":"[^"]*"'
 done
 ```
 
@@ -379,7 +384,7 @@ projet-logs/
 
 Le dépôt est écrit pour un déploiement précis. Pour le faire tourner chez vous, changez :
 
-- **Les domaines.** `yondrfit.com` apparaît dans les labels Traefik et les variables Grafana de `docker-compose.yml`, et dans l'`environment` du job `deploy` de `.gitlab-ci.yml`. Remplacez-le par votre domaine et créez les enregistrements DNS A correspondants.
+- **Le domaine.** Renseignez `DOMAIN` et créez les enregistrements DNS A `todo.<DOMAIN>` et `logs.<DOMAIN>`.
 - **Le projet Doppler.** Le `Makefile` attend un projet `logs` avec les configs `dev` et `prd`. Changez `DOPPLER_PROJECT`, ou lancez Docker Compose directement avec un `.env`.
 - **Le runner GitLab.** Les jobs ciblent un runner tagué `ec2`.
 
