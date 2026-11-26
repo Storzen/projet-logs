@@ -137,7 +137,7 @@ services:
     labels:
       - "logging=promtail"
       - "traefik.enable=true"
-      - "traefik.http.routers.todo.rule=Host(`todo.yondrfit.com`)"
+      - "traefik.http.routers.todo.rule=Host(`todo.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.todo.entrypoints=websecure"
       - "traefik.http.routers.todo.tls=true"
       - "traefik.http.routers.todo.tls.certresolver=letsencrypt"
@@ -209,8 +209,8 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_DOMAIN=logs.yondrfit.com
-      - GF_SERVER_ROOT_URL=https://logs.yondrfit.com
+      - GF_SERVER_DOMAIN=logs.${DOMAIN:-localhost}
+      - GF_SERVER_ROOT_URL=https://logs.${DOMAIN:-localhost}
       - GF_LOG_CONSOLE_FORMAT=json
     volumes:
       - grafana_data:/var/lib/grafana
@@ -229,7 +229,7 @@ services:
     labels:
       - "logging=promtail"
       - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`logs.yondrfit.com`)"
+      - "traefik.http.routers.grafana.rule=Host(`logs.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.grafana.entrypoints=websecure"
       - "traefik.http.routers.grafana.tls=true"
       - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
