@@ -1,4 +1,4 @@
-# Plan de déploiement — projet-logs sur AWS EC2
+# Plan de déploiement — aws-centralized-logging sur AWS EC2
 
 ## Stack cible
 
@@ -70,7 +70,7 @@ newgrp docker
 docker --version && docker compose version
 
 # Cloner le projet
-git clone https://github.com/Storzen/projet-logs.git /opt/projet-logs
+git clone https://github.com/vianneymougang/aws-centralized-logging.git /opt/projet-logs
 cd /opt/projet-logs
 
 # Créer le fichier .env de production
