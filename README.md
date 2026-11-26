@@ -111,7 +111,7 @@ The pipeline in `.gitlab-ci.yml` runs on pushes to `main`, on a GitLab runner ta
 
 - `build` builds the `todo-app` image, tagged with the short commit SHA and `latest`, and saves it as a job artifact. It runs only when `services/todo-app/` or `.gitlab-ci.yml` changes.
 - `push` logs in to Amazon ECR in `eu-central-1`, creates the `todo-app` repository if it does not exist, and pushes both tags.
-- `deploy` runs `git pull origin main` in the project folder on the instance, then `make deploy ENV=prd`. It also runs when `docker-compose.yml` or `config/` changes.
+- `deploy` logs in to ECR, runs `git pull origin main` in the project folder on the instance, then `make deploy ENV=prd`, which pulls the new `todo-app` image from ECR and restarts the app. It also runs when `docker-compose.yml` or `config/` changes.
 
 The only CI variable is `DOPPLER_TOKEN`. The jobs download every other secret (AWS keys, account ID, database and Grafana passwords) from the Doppler `prd` config at run time.
 
