@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# todo-app
 
-## Getting Started
+Application Next.js de démonstration pour la stack de centralisation des logs. Elle sert une liste de tâches stockée dans PostgreSQL et écrit un log JSON sur la sortie standard à chaque lecture, création, mise à jour ou suppression, pour que Promtail le collecte et que Grafana l'affiche.
 
-First, run the development server:
+## API
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+| Méthode  | Route              | Rôle                                                   |
+| -------- | ------------------ | ------------------------------------------------------ |
+| `GET`    | `/api/health`      | Sonde de santé, renvoie le hostname du conteneur       |
+| `GET`    | `/api/todos`       | Liste des tâches                                       |
+| `POST`   | `/api/todos`       | Création d'une tâche                                   |
+| `PATCH`  | `/api/todos/[id]`  | Bascule l'état terminé de la tâche                     |
+| `DELETE` | `/api/todos/[id]`  | Suppression                                            |
+
+Le hostname renvoyé par `/api/health` permet de vérifier que Traefik répartit bien les requêtes entre les deux répliques.
+
+## Format des logs
+
+`lib/logger.ts` écrit une ligne JSON par événement, sur `stdout` (ou `stderr` pour `ERROR`) :
+
+```json
+{"timestamp":"2026-05-04T22:06:16.860Z","level":"INFO","message":"...","service":"todo-app"}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Promtail extrait le champ `level` pour en faire un label Loki, ce qui permet des requêtes comme `{service="todo-app"} | json | level="ERROR"`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Configuration
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+La connexion PostgreSQL (`lib/db.ts`) lit les variables standard de `pg` : `PGHOST` (défaut `postgres`), `PGPORT` (défaut `5432`), `PGUSER`, `PGPASSWORD`, `PGDATABASE`. `docker-compose.yml` les renseigne à partir de `POSTGRES_*`.
 
-## Learn More
+## Développement
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+bun install
+bun dev        # http://localhost:3000, nécessite un PostgreSQL joignable
+bun run lint
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+L'image Docker est construite en multi-stage avec Bun et s'exécute avec un utilisateur non-root.
