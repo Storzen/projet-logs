@@ -2,7 +2,9 @@
 
 Projet réalisé dans le cadre du cours **Cloud, Virtualisation & Datacenter** — Institut Saint Jean.
 
-Mise en place d'une stack complète de centralisation et de visualisation des logs pour plusieurs services conteneurisés, avec pipeline CI/CD automatisé et déploiement sur AWS EC2.
+Stack Docker Compose qui collecte les logs de tous les conteneurs (application, base de données, reverse proxy, outils), les stocke dans Loki et les affiche dans Grafana. Une application Next.js de démonstration tourne en deux répliques derrière Traefik et écrit des logs JSON structurés. GitLab CI construit l'image, la pousse sur Amazon ECR et la redéploie sur une instance EC2.
+
+![Dashboard Grafana « Centralisation des Logs »](./screenshots/grafana-dashboard.png)
 
 ---
 
@@ -15,9 +17,12 @@ Mise en place d'une stack complète de centralisation et de visualisation des lo
 - [Gestion des secrets — Doppler](#gestion-des-secrets--doppler)
 - [Commandes Makefile](#commandes-makefile)
 - [Interfaces et accès](#interfaces-et-accès)
+- [Load balancing](#load-balancing)
 - [Explorer les logs](#explorer-les-logs)
 - [Pipeline CI/CD](#pipeline-cicd)
 - [Structure du projet](#structure-du-projet)
+- [Réutiliser le projet](#réutiliser-le-projet)
+- [Licence](#licence)
 
 ---
 
@@ -42,7 +47,7 @@ L'accès au socket Docker est délégué au **socket-proxy** (tecnativa), qui ex
 | Rôle                         | Outil                                                                    | Version  |
 | ---------------------------- | ------------------------------------------------------------------------ | -------- |
 | Reverse proxy + TLS          | [Traefik](https://traefik.io/)                                           | v3.7.0   |
-| Application de démonstration | [Next.js](https://nextjs.org/) — 2 répliques                            | 14       |
+| Application de démonstration | [Next.js](https://nextjs.org/) sur [Bun](https://bun.sh/), 2 répliques  | 16       |
 | Base de données              | [PostgreSQL](https://www.postgresql.org/)                                | 16       |
 | Collecte des logs            | [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/)    | 2.9      |
 | Stockage des logs            | [Loki](https://grafana.com/oss/loki/)                                    | 2.9      |
@@ -71,7 +76,7 @@ L'accès au socket Docker est délégué au **socket-proxy** (tecnativa), qui ex
 ### 1. Cloner le dépôt
 
 ```bash
-git clone https://gitlab.com/<votre-groupe>/projet-logs.git
+git clone https://gitlab.com/isjprojects/projet-cloud.git projet-logs
 cd projet-logs
 ```
 
@@ -84,7 +89,7 @@ cp .env.example .env
 # Éditer .env avec vos valeurs
 ```
 
-> Ne jamais committer le fichier `.env` — il est dans le `.gitignore`.
+> `.env` est ignoré par Git. Seul `.env.example` est versionné.
 
 ### 3. Lancer la stack
 
@@ -167,21 +172,22 @@ make up ENV=prd
 
 ## Interfaces et accès
 
-### En développement (local)
+### En local
 
-| Service           | URL                        |
-| ----------------- | -------------------------- |
-| Todo App          | http://todo.localhost      |
-| Grafana           | http://grafana.localhost   |
-| Dashboard Traefik | http://traefik.localhost   |
+Les routes Traefik utilisent les domaines de production (`*.yondrfit.com`). En local, Grafana et le dashboard Traefik restent joignables par leurs ports publiés :
 
-Sur Linux, si `.localhost` ne résout pas automatiquement, ajouter dans `/etc/hosts` :
+| Service           | URL                               |
+| ----------------- | --------------------------------- |
+| Grafana           | http://localhost:3001             |
+| Dashboard Traefik | http://localhost:8080/dashboard/  |
 
+La todo app n'a pas de port publié : elle ne répond qu'à travers Traefik. Pour l'ouvrir dans un navigateur, faire pointer `todo.yondrfit.com` vers `127.0.0.1` dans le fichier `hosts` de la machine, puis accepter le certificat auto-signé que Traefik sert faute de Let's Encrypt. En ligne de commande :
+
+```bash
+curl -k --resolve todo.yondrfit.com:443:127.0.0.1 https://todo.yondrfit.com/api/health
 ```
-127.0.0.1 todo.localhost
-127.0.0.1 grafana.localhost
-127.0.0.1 traefik.localhost
-```
+
+![Todo app](./screenshots/todo-app.png)
 
 ### En production (AWS EC2)
 
@@ -193,13 +199,11 @@ Sur Linux, si `.localhost` ne résout pas automatiquement, ajouter dans `/etc/ho
 
 Les certificats TLS sont gérés automatiquement par Traefik via **Let's Encrypt** (ACME TLS Challenge).
 
-### Connecter Loki à Grafana (première connexion)
+### Datasource et dashboard Grafana
 
-1. Se connecter à Grafana avec les credentials du `.env` ou Doppler
-2. Aller dans **Connections → Data sources → Add data source**
-3. Choisir **Loki**
-4. Renseigner l'URL : `http://loki:3100`
-5. Cliquer **Save & test**
+Grafana démarre déjà configuré. Le fichier `config/grafana/provisioning/datasources/loki.yml` déclare Loki (`http://loki:3100`) comme datasource par défaut, et `config/grafana/dashboards/logs-overview.json` fournit le dashboard « Centralisation des Logs » : volume de logs par service, erreurs dans le temps, répartition par niveau et flux en temps réel, filtrables par service et par niveau.
+
+Identifiants : `GRAFANA_USER` / `GRAFANA_PASSWORD`, issus de Doppler ou du `.env`.
 
 ---
 
@@ -335,11 +339,12 @@ projet-logs/
 │   └── promtail/
 │       └── promtail-config.yml ← règles de collecte et parsing des logs
 │
-├── docs/
-│   ├── DEPLOIEMENT.md          ← guide de déploiement AWS complet
-│   └── PLAN_RAPPORT.md         ← plan du rapport de projet
+├── LICENSE                     ← licence MIT
 │
-├── screenshots/                ← captures d'écran de l'interface
+├── docs/
+│   └── DEPLOIEMENT.md          ← guide de déploiement AWS pas à pas
+│
+├── screenshots/                ← captures utilisées dans ce README
 │
 └── services/
     ├── backup/
@@ -367,3 +372,21 @@ projet-logs/
             ├── logger.ts       ← logs JSON structurés
             └── utils.ts        ← utilitaire Tailwind
 ```
+
+---
+
+## Réutiliser le projet
+
+Le dépôt est écrit pour un déploiement précis. Pour le faire tourner chez vous, changez :
+
+- **Les domaines.** `yondrfit.com` apparaît dans les labels Traefik et les variables Grafana de `docker-compose.yml`, et dans l'`environment` du job `deploy` de `.gitlab-ci.yml`. Remplacez-le par votre domaine et créez les enregistrements DNS A correspondants.
+- **Le projet Doppler.** Le `Makefile` attend un projet `logs` avec les configs `dev` et `prd`. Changez `DOPPLER_PROJECT`, ou lancez Docker Compose directement avec un `.env`.
+- **Le runner GitLab.** Les jobs ciblent un runner tagué `ec2`.
+
+Le guide [docs/DEPLOIEMENT.md](./docs/DEPLOIEMENT.md) détaille la mise en place AWS (EC2, Elastic IP, ECR), le DNS et le runner.
+
+---
+
+## Licence
+
+Distribué sous licence MIT. Voir [LICENSE](./LICENSE).
