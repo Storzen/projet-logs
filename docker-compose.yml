@@ -74,12 +74,6 @@ services:
       - NET_BIND_SERVICE
     labels:
       - "logging=promtail"
-      - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`traefik.yondrfit.com`)"
-      - "traefik.http.routers.dashboard.entrypoints=websecure"
-      - "traefik.http.routers.dashboard.tls=true"
-      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.dashboard.service=api@internal"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/ping || exit 1"]
       interval: 30s
