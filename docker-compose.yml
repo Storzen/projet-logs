@@ -106,6 +106,9 @@ services:
 
   # ─── APPLICATION TODO ─────────────────────────────────────────
   todo-app:
+    # En production, le job deploy exporte ECR_REGISTRY : Compose tire l'image
+    # poussée par la CI. Sans ECR_REGISTRY, l'image est construite sur place.
+    image: ${ECR_REGISTRY:-local}/todo-app:latest
     build:
       context: ./services/todo-app
       dockerfile: Dockerfile

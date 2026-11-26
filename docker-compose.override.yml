@@ -1,3 +1,7 @@
+services:
+  todo-app:
+    pull_policy: build
+
 networks:
   socket-proxy:
     driver: bridge
